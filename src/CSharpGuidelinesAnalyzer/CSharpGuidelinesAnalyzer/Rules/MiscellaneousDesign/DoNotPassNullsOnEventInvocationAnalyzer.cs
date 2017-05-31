@@ -54,19 +54,24 @@ namespace CSharpGuidelinesAnalyzer.Rules.MiscellaneousDesign
 
         private void AnalyzeEventInvocation(OperationAnalysisContext context, [NotNull] INamedTypeSymbol systemEventArgs)
         {
-            var expression = (IInvocationExpression)context.Operation;
+            var invocation = (IInvocationExpression)context.Operation;
 
-            bool? targetsStaticEvent = IsStaticEvent(expression.Instance, context.Compilation);
+            if (invocation.ArgumentsInEvaluationOrder.Length != 2)
+            {
+                return;
+            }
+
+            bool? targetsStaticEvent = IsStaticEvent(invocation.Instance, context.Compilation);
             if (targetsStaticEvent != null)
             {
-                if (expression.TargetMethod.MethodKind == MethodKind.DelegateInvoke)
+                if (invocation.TargetMethod.MethodKind == MethodKind.DelegateInvoke)
                 {
                     if (!targetsStaticEvent.Value)
                     {
-                        AnalyzeSenderArgument(expression, context);
+                        AnalyzeSenderArgument(invocation, context);
                     }
 
-                    AnalyzeArgsArgument(expression, systemEventArgs, context);
+                    AnalyzeArgsArgument(invocation, systemEventArgs, context);
                 }
             }
         }
@@ -120,13 +125,9 @@ namespace CSharpGuidelinesAnalyzer.Rules.MiscellaneousDesign
         [CanBeNull]
         private IArgument GetSenderArgument([NotNull] IInvocationExpression invocation)
         {
-            // TODO: Verify that .ArgumentsInEvaluationOrder is the correct replacement for .ArgumentsInParameterOrder
-            IArgument argument = invocation.ArgumentsInEvaluationOrder.FirstOrDefault();
+            IArgument argument = invocation.ArgumentsInEvaluationOrder.FirstOrDefault(x => x.Parameter.Name == "sender");
 
-            return argument != null && argument.Parameter.Name == "sender" &&
-                argument.Parameter.Type.SpecialType == SpecialType.System_Object
-                    ? argument
-                    : null;
+            return argument != null && argument.Parameter.Type.SpecialType == SpecialType.System_Object ? argument : null;
         }
 
         private void AnalyzeArgsArgument([NotNull] IInvocationExpression invocation, [NotNull] INamedTypeSymbol systemEventArgs,
@@ -143,19 +144,8 @@ namespace CSharpGuidelinesAnalyzer.Rules.MiscellaneousDesign
         [CanBeNull]
         private IArgument GetArgsArgument([NotNull] IInvocationExpression invocation, [NotNull] INamedTypeSymbol systemEventArgs)
         {
-            // TODO: Verify that .ArgumentsInEvaluationOrder is the correct replacement for .ArgumentsInParameterOrder
-            if (invocation.ArgumentsInEvaluationOrder.Length == 2)
-            {
-                // TODO: Verify that .ArgumentsInEvaluationOrder is the correct replacement for .ArgumentsInParameterOrder
-                IArgument argument = invocation.ArgumentsInEvaluationOrder[1];
-
-                if (!string.IsNullOrEmpty(argument.Parameter?.Name) && IsEventArgs(argument.Parameter.Type, systemEventArgs))
-                {
-                    return argument;
-                }
-            }
-
-            return null;
+            return invocation.ArgumentsInEvaluationOrder.FirstOrDefault(x => !string.IsNullOrEmpty(x.Parameter?.Name) &&
+                IsEventArgs(x.Parameter.Type, systemEventArgs));
         }
 
         private static bool IsEventArgs([CanBeNull] ITypeSymbol type, [NotNull] INamedTypeSymbol systemEventArgs)

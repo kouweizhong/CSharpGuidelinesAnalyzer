@@ -39,7 +39,7 @@ namespace CSharpGuidelinesAnalyzer.Rules.Maintainability
 
             if (!argument.Parameter.Type.IsBooleanOrNullableBoolean())
             {
-                // TODO: Requires bugfix for .Syntax property. See https://github.com/dotnet/roslyn/issues/19371
+                // Workaround for https://github.com/dotnet/roslyn/issues/19371
                 ArgumentSyntax syntax = argument.Syntax as ArgumentSyntax ?? argument.Syntax?.Parent as ArgumentSyntax;
 
                 if (syntax?.NameColon != null)
